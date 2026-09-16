@@ -537,12 +537,9 @@ function sendResultsToTeacher(r1, r2, total, totalQ, totalTimeSeconds, approxima
   };
   lastResultsPayload = payload;
 
-  // Submit via fetch with Accept: application/json, per Formspree's
-  // recommended approach for JS-driven submissions. This lets us read
-  // the actual response instead of assuming success.
-  statusEl.textContent = 'Sending your results…';
-  statusEl.className = 'rq-send-status sending';
-
+  // Submit via fetch with Accept: application/json (Formspree's recommended
+  // approach for JS-driven submissions). This lets us read the real response
+  // instead of assuming success like the old hidden-iframe approach did.
   fetch(FORMSPREE_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -558,13 +555,13 @@ function sendResultsToTeacher(r1, r2, total, totalQ, totalTimeSeconds, approxima
       } else {
         return response.json().catch(function () { return null; }).then(function (data) {
           const detail = (data && data.errors && data.errors.map(function (e) { return e.message; }).join(', ')) || ('HTTP ' + response.status);
-          statusEl.textContent = 'Submission failed (' + detail + '). Please use the WhatsApp button to send your results instead.';
+          statusEl.textContent = 'Submission failed (' + detail + '). Please use the WhatsApp button below to send your results instead.';
           statusEl.className = 'rq-send-status error';
         });
       }
     })
     .catch(function (err) {
-      statusEl.textContent = 'Submission failed (network error). Please use the WhatsApp button to send your results instead.';
+      statusEl.textContent = 'Submission failed (network error: ' + err.message + '). Please use the WhatsApp button below to send your results instead.';
       statusEl.className = 'rq-send-status error';
     });
 }
