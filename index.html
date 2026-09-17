@@ -520,7 +520,8 @@ function finishTest() {
 
 function sendResultsToTeacher(r1, r2, total, totalQ, totalTimeSeconds, approximateScaledScore) {
   const statusEl = document.getElementById('send-status');
-  const allMistakes = r1.mistakes.concat(r2.mistakes).join(' | ') || 'None — perfect score!';
+  try {
+    const allMistakes = r1.mistakes.concat(r2.mistakes).join(' | ') || 'None — perfect score!';
 
   const payload = {
     quiz: "May 2026 V.3 — Reading & Writing",
@@ -538,17 +539,23 @@ function sendResultsToTeacher(r1, r2, total, totalQ, totalTimeSeconds, approxima
   lastResultsPayload = payload;
 
   // Submit via fetch with Accept: application/json (Formspree's recommended
-  // approach for JS-driven submissions). This lets us read the real response
-  // instead of assuming success like the old hidden-iframe approach did.
+  // approach for JS-driven submissions). A hard timeout guarantees the status
+  // message always changes, even if the request silently hangs (e.g. blocked
+  // by a content blocker or a flaky connection) instead of failing outright.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(function () { controller.abort(); }, 10000);
+
   fetch(FORMSPREE_ENDPOINT, {
     method: 'POST',
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: controller.signal
   })
     .then(function (response) {
+      clearTimeout(timeoutId);
       if (response.ok) {
         statusEl.textContent = 'Your results have been submitted.';
         statusEl.className = 'rq-send-status sent';
@@ -561,9 +568,15 @@ function sendResultsToTeacher(r1, r2, total, totalQ, totalTimeSeconds, approxima
       }
     })
     .catch(function (err) {
-      statusEl.textContent = 'Submission failed (network error: ' + err.message + '). Please use the WhatsApp button below to send your results instead.';
+      clearTimeout(timeoutId);
+      const reason = err.name === 'AbortError' ? 'request timed out' : ('network error: ' + err.message);
+      statusEl.textContent = 'Submission failed (' + reason + '). Please use the WhatsApp button below to send your results instead.';
       statusEl.className = 'rq-send-status error';
     });
+  } catch (err) {
+    statusEl.textContent = 'Submission failed (' + err.message + '). Please use the WhatsApp button below to send your results instead.';
+    statusEl.className = 'rq-send-status error';
+  }
 }
 function getApproximateScaledScore(correct, total) {
   if (total !== 54) {
